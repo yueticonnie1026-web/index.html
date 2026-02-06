@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>說好的今晚見面？你人在哪！</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+        
+        /* 色彩系統 */
+        .color-lunch-sure { background-color: #f97316; color: white; }
+        .color-lunch-maybe { background-color: #fdba74; color: white; } /* 較淺 */
+        .color-dinner-sure { background-color: #7c3aed; color: white; }
+        .color-dinner-maybe { background-color: #ddd6fe; color: #6d28d9; } /* 較淺 */
+
+        .btn-primary {
+            background: linear-gradient(to right, #f43f5e, #fb923c);
+            transition: all 0.3s ease;
+        }
+        .step-transition { transition: all 0.4s ease-in-out; }
+        .hidden-step { display: none; opacity: 0; transform: scale(0.95); }
+        
+        /* 熱點圖色彩 */
+        .heatmap-max { background: #10b981; color: white; border: 2px solid #fbbf24; }
+        .heatmap-lv3 { background: #6ee7b7; }
+        .heatmap-lv1 { background: #d1fae5; }
+        .heatmap-lv0 { background: white; }
+
+        .rank-item { transition: transform 0.2s; }
+        .rank-item:hover { transform: translateX(5px); }
+    </style>
+</head>
+<body class="pb-20">
+
+    <!-- Navbar -->
+    <nav class="bg-white/70 backdrop-blur-md shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-40">
+        <div class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-orange-500">
+            說好的今晚見面？你人在哪！
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="user-display" class="hidden text-sm font-bold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                <span id="current-user-name"></span>
+            </div>
+            <button onclick="resetData()" class="text-gray-400 hover:text-red-500 font-bold text-sm transition-colors">
+                重置
+            </button>
+        </div>
+    </nav>
+
+    <main class="container mx-auto max-w-lg p-4">
+        
+        <!-- 第一階段：你哪位 -->
+        <section id="step-1" class="step-transition glass-card rounded-[2rem] p-8 mt-10 text-center animate__animated animate__fadeInDown">
+            <div class="mb-8">
+                <div class="w-24 h-24 bg-gradient-to-tr from-rose-100 to-orange-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <i class="fas fa-ghost text-4xl"></i>
+                </div>
+                <h2 class="text-4xl font-black text-gray-800 mb-6">你哪位？</h2>
+            </div>
+            <input type="text" id="input-name" placeholder="輸入你的暱稱..." 
+                class="w-full border-b-4 border-gray-100 bg-transparent px-4 py-4 mb-10 focus:border-rose-400 focus:outline-none transition-all text-center text-2xl font-bold text-gray-700">
+            <button onclick="enterCalendar()" 
+                class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-xl text-xl">
+                你哪天有空？ <i class="fas fa-calendar-alt ml-2"></i>
+            </button>
+        </section>
+
+        <!-- 第二階段：行事曆選擇 -->
+        <section id="step-2" class="hidden-step step-transition">
+            <div class="glass-card rounded-[2rem] overflow-hidden shadow-2xl">
+                <div class="bg-indigo-600 p-6 text-white flex justify-between items-center">
+                    <button onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+                    <h3 id="calendar-month" class="font-black text-xl">2024年 12月</h3>
+                    <button onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                
+                <div class="p-4">
+                    <div class="calendar-grid text-center text-sm font-black text-indigo-400 mb-4">
+                        <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                    </div>
+                    <div id="calendar-body" class="calendar-grid gap-2"></div>
+                </div>
+
+                <div class="p-6 border-t bg-white/80">
+                    <p class="text-xs text-center text-gray-400 mb-4 font-bold italic">點擊日期，標註你的空檔</p>
+                    <button onclick="submitVotes()" class="w-full btn-primary text-white font-black py-4 rounded-2xl shadow-lg">
+                        這幾天我可以！ <i class="fas fa-check-circle ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 第三階段：統計排行 -->
+        <section id="step-3" class="hidden-step step-transition space-y-6">
+            <div class="glass-card rounded-[2rem] p-6">
+                <h3 class="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2">
+                    <i class="fas fa-fire text-orange-500"></i> 熱門度大對決
+                </h3>
+                <div id="heatmap-calendar-body" class="calendar-grid gap-2 mb-8"></div>
+            </div>
+
+            <!-- 排行榜區塊 -->
+            <div class="glass-card rounded-[2rem] p-6">
+                <h3 class="text-xl font-black text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fas fa-trophy text-yellow-500"></i> 時段排名
+                </h3>
+                <div id="ranking-list" class="space-y-3">
+                    <!-- Ranking items will appear here -->
+                </div>
+            </div>
+
+            <button onclick="location.reload()" class="w-full bg-white/60 py-4 rounded-2xl font-black text-gray-600 border border-white/50">
+                切換使用者投票
+            </button>
+        </section>
+
+    </main>
+
+    <!-- 選項 Modal -->
+    <div id="option-modal" class="fixed inset-0 bg-indigo-950/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate__animated animate__zoomIn">
+            <div id="modal-date-title" class="text-center font-black text-2xl text-indigo-900 mb-6"></div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <!-- 午餐組 -->
+                <div class="space-y-2">
+                    <p class="text-center font-black text-orange-500 text-sm">☀️ 午餐</p>
+                    <button onclick="toggleTimeSlot('lunch', 'sure')" id="btn-lunch-sure" class="w-full py-3 rounded-xl border-2 font-bold text-sm">確定可以</button>
+                    <button onclick="toggleTimeSlot('lunch', 'maybe')" id="btn-lunch-maybe" class="w-full py-3 rounded-xl border-2 font-bold text-sm">可能可以</button>
+                </div>
+                <!-- 晚餐組 -->
+                <div class="space-y-2">
+                    <p class="text-center font-black text-violet-500 text-sm">🌙 晚餐</p>
+                    <button onclick="toggleTimeSlot('dinner', 'sure')" id="btn-dinner-sure" class="w-full py-3 rounded-xl border-2 font-bold text-sm">確定可以</button>
+                    <button onclick="toggleTimeSlot('dinner', 'maybe')" id="btn-dinner-maybe" class="w-full py-3 rounded-xl border-2 font-bold text-sm">可能可以</button>
+                </div>
+            </div>
+            
+            <button onclick="closeModal()" class="w-full mt-8 bg-indigo-900 text-white font-black py-4 rounded-2xl">選好了</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = "";
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+        let selectedDate = null;
+        let mySelections = {}; // { "date": { lunch: "sure/maybe/null", dinner: "sure/maybe/null" } }
+
+        // 資料結構：globalVotes["2024-12-01"]["lunch"] = { "姓名": "sure" }
+        let globalVotes = JSON.parse(localStorage.getItem('gathering_votes_v4')) || {};
+
+        function resetData() {
+            if (confirm("📢 確定要重置所有資料嗎？這將會清除所有人的投票！")) {
+                localStorage.removeItem('gathering_votes_v4');
+                window.location.reload();
+            }
+        }
+
+        function enterCalendar() {
+            const name = document.getElementById('input-name').value.trim();
+            if (!name) return alert("要填名字喔！");
+            currentUser = name;
+            document.getElementById('current-user-name').innerText = currentUser;
+            document.getElementById('user-display').classList.remove('hidden');
+            switchStep(1, 2);
+            renderCalendar();
+        }
+
+        function switchStep(from, to) {
+            document.getElementById(`step-${from}`).classList.add('hidden-step');
+            setTimeout(() => {
+                document.getElementById(`step-${from}`).style.display = 'none';
+                const toStep = document.getElementById(`step-${to}`);
+                toStep.style.display = 'block';
+                setTimeout(() => toStep.classList.remove('hidden-step'), 50);
+            }, 400);
+        }
+
+        function renderCalendar() {
+            const body = document.getElementById('calendar-body');
+            body.innerHTML = '';
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            document.getElementById('calendar-month').innerText = `${currentYear}年 ${currentMonth + 1}月`;
+
+            for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = formatDate(currentYear, currentMonth, d);
+                const sel = mySelections[dateStr];
+                
+                body.innerHTML += `
+                    <div onclick="openModal('${dateStr}')" class="aspect-square flex flex-col items-center justify-center rounded-xl bg-white/40 border border-white/60 cursor-pointer relative transition-all hover:bg-white">
+                        <span class="text-sm font-black ${isToday(dateStr) ? 'text-rose-500 underline' : 'text-indigo-900'}">${d}</span>
+                        <div class="flex gap-1 mt-1">
+                            ${sel?.lunch ? `<span class="w-2 h-2 rounded-full ${sel.lunch === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe'}"></span>` : ''}
+                            ${sel?.dinner ? `<span class="w-2 h-2 rounded-full ${sel.dinner === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe'}"></span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            renderCalendar();
+        }
+
+        function openModal(dateStr) {
+            selectedDate = dateStr;
+            document.getElementById('modal-date-title').innerText = dateStr;
+            updateModalButtons();
+            document.getElementById('option-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('option-modal').style.display = 'none';
+            renderCalendar();
+        }
+
+        function toggleTimeSlot(slot, type) {
+            if (!mySelections[selectedDate]) mySelections[selectedDate] = { lunch: null, dinner: null };
+            
+            // 如果點擊已選中的，就取消
+            if (mySelections[selectedDate][slot] === type) {
+                mySelections[selectedDate][slot] = null;
+            } else {
+                mySelections[selectedDate][slot] = type;
+            }
+            updateModalButtons();
+        }
+
+        function updateModalButtons() {
+            const sel = mySelections[selectedDate] || { lunch: null, dinner: null };
+            
+            const config = {
+                'lunch-sure': { el: 'btn-lunch-sure', color: 'border-orange-500 bg-orange-500 text-white', off: 'border-gray-100 text-gray-300' },
+                'lunch-maybe': { el: 'btn-lunch-maybe', color: 'border-orange-300 bg-orange-200 text-orange-700', off: 'border-gray-100 text-gray-300' },
+                'dinner-sure': { el: 'btn-dinner-sure', color: 'border-violet-600 bg-violet-600 text-white', off: 'border-gray-100 text-gray-300' },
+                'dinner-maybe': { el: 'btn-dinner-maybe', color: 'border-violet-300 bg-violet-200 text-violet-700', off: 'border-gray-100 text-gray-300' }
+            };
+
+            for (let key in config) {
+                const [slot, type] = key.split('-');
+                const btn = document.getElementById(config[key].el);
+                btn.className = sel[slot] === type ? `w-full py-3 rounded-xl border-2 font-bold text-sm ${config[key].color}` : `w-full py-3 rounded-xl border-2 font-bold text-sm ${config[key].off}`;
+            }
+        }
+
+        function submitVotes() {
+            for (let date in mySelections) {
+                if (!globalVotes[date]) globalVotes[date] = { lunch: {}, dinner: {} };
+                if (mySelections[date].lunch) globalVotes[date].lunch[currentUser] = mySelections[date].lunch;
+                if (mySelections[date].dinner) globalVotes[date].dinner[currentUser] = mySelections[date].dinner;
+            }
+            localStorage.setItem('gathering_votes_v4', JSON.stringify(globalVotes));
+            renderHeatmap();
+            renderRanking();
+            switchStep(2, 3);
+        }
+
+        function renderHeatmap() {
+            const body = document.getElementById('heatmap-calendar-body');
+            body.innerHTML = '';
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            let max = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = formatDate(currentYear, currentMonth, d);
+                const count = Object.keys(globalVotes[dateStr]?.lunch || {}).length + Object.keys(globalVotes[dateStr]?.dinner || {}).length;
+                if (count > max) max = count;
+            }
+
+            for (let i = 0; i < firstDay; i++) body.innerHTML += `<div></div>`;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = formatDate(currentYear, currentMonth, d);
+                const count = Object.keys(globalVotes[dateStr]?.lunch || {}).length + Object.keys(globalVotes[dateStr]?.dinner || {}).length;
+                let lv = 'heatmap-lv0';
+                if (max > 0) {
+                    if (count === max) lv = 'heatmap-max';
+                    else if (count >= max * 0.6) lv = 'heatmap-lv3';
+                    else if (count > 0) lv = 'heatmap-lv1';
+                }
+                body.innerHTML += `<div class="aspect-square flex items-center justify-center rounded-lg text-xs font-black border border-gray-100 ${lv}">${d}</div>`;
+            }
+        }
+
+        function renderRanking() {
+            const listEl = document.getElementById('ranking-list');
+            listEl.innerHTML = '';
+            let items = [];
+
+            for (let date in globalVotes) {
+                ['lunch', 'dinner'].forEach(slot => {
+                    const votes = globalVotes[date][slot];
+                    const voters = Object.keys(votes);
+                    if (voters.length > 0) {
+                        items.push({
+                            date, slot, 
+                            total: voters.length,
+                            voters: votes // { "小明": "sure" }
+                        });
+                    }
+                });
+            }
+
+            // 排序：票數多到少
+            items.sort((a, b) => b.total - a.total);
+
+            if (items.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-400 text-center py-10">目前尚無投票資料</p>';
+                return;
+            }
+
+            items.forEach((item, index) => {
+                const sureCount = Object.values(item.voters).filter(v => v === 'sure').length;
+                const maybeCount = Object.values(item.voters).filter(v => v === 'maybe').length;
+                
+                const div = document.createElement('div');
+                div.className = "rank-item bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-2";
+                
+                let voterBadges = "";
+                for (let name in item.voters) {
+                    const type = item.voters[name];
+                    const colorClass = item.slot === 'lunch' 
+                        ? (type === 'sure' ? 'color-lunch-sure' : 'color-lunch-maybe')
+                        : (type === 'sure' ? 'color-dinner-sure' : 'color-dinner-maybe');
+                    voterBadges += `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${colorClass}">${name}</span> `;
+                }
+
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-600 font-black text-xs">${index + 1}</span>
+                            <span class="font-black text-gray-700">${item.date}</span>
+                            <span class="text-sm font-bold ${item.slot === 'lunch' ? 'text-orange-500' : 'text-violet-500'}">${item.slot === 'lunch' ? '午餐 ☀️' : '晚餐 🌙'}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xl font-black text-gray-800">${item.total}</span> <span class="text-xs text-gray-400 font-bold">票</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                        ${voterBadges}
+                    </div>
+                `;
+                listEl.appendChild(div);
+            });
+        }
+
+        function formatDate(y, m, d) {
+            return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
+        function isToday(dateStr) {
+            const t = new Date();
+            return dateStr === formatDate(t.getFullYear(), t.getMonth(), t.getDate());
+        }
+    </script>
+</body>
+</html>
